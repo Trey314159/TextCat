@@ -1,0 +1,282 @@
+#!/usr/bin/perl -w
+# © Gertjan van Noord, 1997.
+# mailto:vannoord@let.rug.nl
+#
+# updated by Trey Jones, 2016
+# mailto:tjones@wikimedia.org
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# http://www.gnu.org/copyleft/gpl.html
+
+use utf8;
+use open qw(:std :utf8);
+
+use strict;
+use vars
+  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_l $opt_L $opt_m $opt_n $opt_s $opt_t $opt_u $opt_w );
+use Getopt::Std;
+
+# OPTIONS
+getopts('a:d:f:hi:lL:m:nst:u:w:');
+
+my $max_returned_langs  = $opt_a || 10;
+my $model_dir           = $opt_d || './LM';
+my $ngram_min_freq      = $opt_f || 0;
+my $max_input_lines     = $opt_i || 0;
+my $read_from_cl        = $opt_l;
+my $language_list       = $opt_L || '';
+my $model_size          = $opt_m || 500;
+my $create_model        = $opt_n;
+my $line_by_line        = $opt_s;
+my $max_input_ngrams    = $opt_t || 500;
+my $max_result_ratio    = $opt_u || 1.05;
+my $non_word_characters = $opt_w || '0-9\s()';
+
+sub help {
+    print <<HELP
+Text Categorization. Typically used to determine the language of a given document. 
+
+Usage
+-----
+
+* print help message:
+
+$0 -h
+
+* for guessing: 
+
+$0 [-a Int] [-d Dir] [-f Int] [-i Int] [-l] [-t Int] [-m Int] [-u Int]
+
+    -a    The program returns the best-scoring language together
+          with all languages which are $max_result_ratio times worse (cf option -u). 
+          If the number of languages to be printed is larger than the value 
+          of this option (default: $max_returned_langs) then no language is returned, but
+          instead a message that the input is of an unknown language is
+          printed. Default: $max_returned_langs.
+
+    -d    Indicates in which directory the language models are 
+          located (files ending in .lm). Currently only a single 
+          directory is supported. Default: $model_dir.
+
+    -f    Before sorting is performed the n-grams which occur this number 
+          of times or fewer are removed. This can be used to speed up
+          the program for longer inputs. For short inputs you should use
+          -f 0. Default: $ngram_min_freq.
+
+    -i    Only read the specified number of lines of the input.
+
+    -l    Indicates that input is given as an argument on the command line,
+          e.g. text_cat -m 2000 -l "this is english text"
+          Cannot be used in combination with -n.
+
+    -L    Comma-separated list of languages to use; Default: all models in
+          the directory specified by -d.
+
+    -s    Determine language of each line of input.
+
+    -t    Indicates the maximum number of n-grams that should be used from
+          the input being categorized. If used in combination with -n this
+          determines the size of the output. If used with categorization
+          this determines the number of n-grams that are compared with each
+          of the language models. Default: $max_input_ngrams.
+
+    -m    Indicates the maximum number of n-grams from each language model
+          that should be used. Use 0 for "all". Typical value: > 500 for
+          longer texts, > 2000 for very short texts. Default: $model_size.
+
+    -u    Determines how much worse result must be in order not to be 
+          mentioned as an alternative. Typical value: 1.05 or 1.1. 
+          Default: $max_result_ratio.
+
+    -w    Regex for non-word characters. Default: '$non_word_characters'.
+
+
+* for creating new language model, based on text read from standard input:
+
+$0 -n [-t Int]
+
+    -t    See above.
+
+HELP
+}
+
+if ($opt_h) { help(); exit 0; }
+
+my @languages  = ();
+my @user_langs = split( /[, ]+/, $language_list );
+my %all_ngram  = ();
+
+# pre-load language models
+if ( !$create_model ) {
+
+    # open directory to find which languages are supported
+    opendir DIR, "$model_dir" or die "directory $model_dir: $!\n";
+    @languages =
+      sort( grep { s/\.lm// && -r "$model_dir/$_.lm" } readdir(DIR) );
+    closedir DIR;
+    if (@user_langs) {
+        my %union = ();
+        my %intersection = ();
+        foreach my $e ( @languages, @user_langs ) {
+            $union{$e}++ && $intersection{$e}++;
+        }
+        @languages = keys %intersection;
+    }
+    @languages
+      or die "sorry, can't read any language models from $model_dir\n"
+      . "language models must reside in files with .lm ending\n";
+
+    # load model and count for each language.
+    my $language;
+    foreach $language (@languages) {
+
+        # loads the language model into hash %$language.
+        my $rang = 1;
+        open( LM, "$model_dir/$language.lm" )
+          || die "cannot open $language.lm: $!\n";
+        while (<LM>) {
+            chomp;
+
+            # only use lines starting with appropriate character. Others are ignored.
+            if (/^([^$non_word_characters]+)/) {
+                $all_ngram{$language}{$1} = $rang++;
+            }
+            if ( $model_size && $rang > $model_size ) {
+                last;
+            }
+        }
+        close(LM);
+    }
+}
+
+if ($create_model) {
+    my %ngram = ();
+    my @result = create_lm( input(), \%ngram );
+    print join( "\n", map { "$_\t $ngram{$_}"; } @result ), "\n";
+}
+elsif ($read_from_cl) {
+    classify( $ARGV[0] );
+}
+elsif ($line_by_line) {
+    while (<>) {
+        chomp;
+        classify($_);
+    }
+}
+else {
+    classify( input() );
+}
+
+# CLASSIFICATION
+sub classify {
+    my ($input) = @_;
+    my %results = ();
+    my $maxp    = $model_size;
+
+    # create n-grams for input. Note that hash %unknown is not used;
+    # it contains the actual counts which are only used under -n: creating
+    # new language model (and even then they are not really required).
+    my @unknown = create_lm($input);
+    foreach my $language (@languages) {
+
+        # compares the language model with input n-grams list
+        my ( $i, $p ) = ( 0, 0 );
+        while ( $i < @unknown ) {
+            if ( $all_ngram{$language}{ $unknown[$i] } ) {
+                $p = $p + abs( $all_ngram{$language}{ $unknown[$i] } - $i );
+            }
+            else {
+                $p = $p + $maxp;
+            }
+            ++$i;
+        }
+
+        $results{$language} = $p;
+    }
+    my @results =
+      sort { $results{$a} <=> $results{$b} || $a cmp $b } keys %results;
+
+    my $a = $results{ $results[0] };
+
+    my @answers = ( shift(@results) );
+    while ( @results && $results{ $results[0] } < ( $max_result_ratio * $a ) ) {
+        @answers = ( @answers, shift(@results) );
+    }
+    if ( @answers > $max_returned_langs ) {
+        print
+          "I don't know. Perhaps this is a language I haven't seen before?\n";
+    }
+    else {
+        print $input, "\t",
+          join( "; ", map { $_ . "," . $results{$_} } @answers ), "\n";
+    }
+}
+
+# first and only argument is reference to hash.
+# this hash is filled, and a sorted list is returned.
+sub input {
+    my $read = "";
+    if ($max_input_lines) {
+        while (<>) {
+            if ( $. == $max_input_lines ) {
+                return $read . $_;
+            }
+            $read = $read . $_;
+        }
+        return $read;
+    }
+    else {
+        local $/;    # so it doesn't affect $/ elsewhere
+        undef $/;
+        $read = <>;    # swallow input.
+        $read || die "determining the language of an empty file is hard...\n";
+        return $read;
+    }
+}
+
+sub create_lm {
+    my $ngram;
+    ( $_, $ngram ) = @_;	# $ngram contains reference to the hash we build
+							# then add the n-grams found in each word in the hash
+    my $word;
+    foreach $word ( split("[$non_word_characters]+") ) {
+        $word = "_" . $word . "_";
+        my $len  = length($word);
+        my $flen = $len;
+        my $i;
+        for ( $i = 0 ; $i < $flen ; $i++ ) {
+            $$ngram{ substr( $word, $i, 5 ) }++ if $len > 4;
+            $$ngram{ substr( $word, $i, 4 ) }++ if $len > 3;
+            $$ngram{ substr( $word, $i, 3 ) }++ if $len > 2;
+            $$ngram{ substr( $word, $i, 2 ) }++ if $len > 1;
+            $$ngram{ substr( $word, $i, 1 ) }++;
+            $len--;
+        }
+    }
+
+    # as suggested by Karel P. de Vos, k.vos@elsevier.nl, we speed up
+    # sorting by removing singletons
+    map {
+        my $key = $_;
+        if ( $$ngram{$key} <= $ngram_min_freq ) { delete $$ngram{$key}; }
+    } keys %$ngram;
+    #however I have very bad results for short inputs, this way
+
+    # sort the n-grams, and spit out the $max_input_ngrams frequent ones.
+    my @sorted = sort { $$ngram{$b} <=> $$ngram{$a} || $a cmp $b } keys %$ngram;
+    splice( @sorted, $max_input_ngrams ) if ( @sorted > $max_input_ngrams );
+    return @sorted;
+}
+
