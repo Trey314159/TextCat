@@ -46,7 +46,7 @@ my $non_word_characters = $opt_w || '0-9\s()';
 
 sub help {
     print <<HELP
-Text Categorization. Typically used to determine the language of a given document. 
+Text Categorization. Typically used to determine the language of a given document.
 
 Usage
 -----
@@ -55,22 +55,22 @@ Usage
 
 $0 -h
 
-* for guessing: 
+* for guessing:
 
 $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-l] [-t Int] [-m Int] [-u Int]
 
     -a    The program returns the best-scoring language together
-          with all languages which are $max_result_ratio times worse (cf option -u). 
-          If the number of languages to be printed is larger than the value 
+          with all languages which are $max_result_ratio times worse (cf option -u).
+          If the number of languages to be printed is larger than the value
           of this option (default: $max_returned_langs) then no language is returned, but
           instead a message that the input is of an unknown language is
           printed. Default: $max_returned_langs.
 
-    -d    Indicates in which directory the language models are 
-          located (files ending in .lm). Currently only a single 
-          directory is supported. Default: $model_dir.
+    -d    Indicates in which directories the language models are
+          located (files ending in .lm). Multiple directories can be separated
+          by a comma, and will be used in order. Default: $model_dir.
 
-    -f    Before sorting is performed the n-grams which occur this number 
+    -f    Before sorting is performed the n-grams which occur this number
           of times or fewer are removed. This can be used to speed up
           the program for longer inputs. For short inputs you should use
           -f 0. Default: $ngram_min_freq.
@@ -96,8 +96,8 @@ $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-l] [-t Int] [-m Int] [-u Int]
           that should be used. Use 0 for "all". Typical value: > 500 for
           longer texts, > 2000 for very short texts. Default: $model_size.
 
-    -u    Determines how much worse result must be in order not to be 
-          mentioned as an alternative. Typical value: 1.05 or 1.1. 
+    -u    Determines how much worse result must be in order not to be
+          mentioned as an alternative. Typical value: 1.05 or 1.1.
           Default: $max_result_ratio.
 
     -w    Regex for non-word characters. Default: '$non_word_characters'.
@@ -115,36 +115,41 @@ HELP
 if ($opt_h) { help(); exit 0; }
 
 my @languages  = ();
-my @user_langs = split( /[, ]+/, $language_list );
+my @model_dirs = split( /[, ]+/, $model_dir );
+my %user_langs = map {$_ => 1} split( /[, ]+/, $language_list );
+my @user_langs = ();
 my %all_ngram  = ();
 
 # pre-load language models
 if ( !$create_model ) {
 
-    # open directory to find which languages are supported
-    opendir DIR, "$model_dir" or die "directory $model_dir: $!\n";
-    @languages =
-      sort( grep { s/\.lm// && -r "$model_dir/$_.lm" } readdir(DIR) );
-    closedir DIR;
-    if (@user_langs) {
-        my %union = ();
-        my %intersection = ();
-        foreach my $e ( @languages, @user_langs ) {
-            $union{$e}++ && $intersection{$e}++;
-        }
-        @languages = keys %intersection;
-    }
+	my %lang_path = ();
+
+	foreach my $dir ( @model_dirs ) {
+	    # open directory to find which languages are supported
+	    opendir DIR, "$dir" or die "directory $dir: $!\n";
+	    push ( @languages,
+			# lang model must exist and be readable, be compatible with the user supplied
+			# language list, and not have been found in a previous directory; map lang code
+			# to path as a side effect o ftracking seen codes
+			grep { s/\.lm// && -r "$dir/$_.lm" &&
+			       ( !$language_list || $user_langs{$_} ) &&
+			       ( !$lang_path{$_} && ($lang_path{$_} = "$dir/$_" ) ) } readdir( DIR ) );
+	    closedir DIR;
+	}
+
     @languages
       or die "sorry, can't read any language models from $model_dir\n"
       . "language models must reside in files with .lm ending\n";
 
     # load model and count for each language.
     my $language;
-    foreach $language (@languages) {
+    foreach $language ( @languages ) {
 
         # loads the language model into hash %$language.
         my $rang = 1;
-        open( LM, "$model_dir/$language.lm" )
+
+        open( LM, $lang_path{$language}.".lm" )
           || die "cannot open $language.lm: $!\n";
         while (<LM>) {
             chomp;

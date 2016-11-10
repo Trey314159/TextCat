@@ -20,6 +20,8 @@ Updates from the original version include:
 * pre-loaded all language models so that when processing line by line it is many times faster (a known deficiency mentioned in the comments of the original)
 * put in an alphabetic sub-sort after frequency sorting of n-grams (as noted in the comments of the original, not having this is faster, but without it, results are not unique, and can vary from run to run on the same input!!), and similarly sorted outputs with the same score alphabetically.
 * removed the benchmark timers (after re-shuffling some parts of the code, they weren't in a convenient location anymore, so I just took them out.
+* updated to allow multiple language model directories; we can use query-based models but can also fall back to Wiki-text-based models without mixing them in one directory
+
 
 ## Classification and Model Generation
 
