@@ -25,11 +25,11 @@ use open qw(:std :utf8);
 
 use strict;
 use vars
-  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_l $opt_L $opt_m $opt_n $opt_s $opt_t $opt_u $opt_w );
+  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_s $opt_t $opt_u $opt_w );
 use Getopt::Std;
 
 # OPTIONS
-getopts('a:d:f:hi:lL:m:nst:u:w:');
+getopts('a:d:f:hi:j:lL:m:nst:u:w:');
 
 my $max_returned_langs  = $opt_a || 10;
 my $model_dir           = $opt_d || './LM';
@@ -43,6 +43,7 @@ my $line_by_line        = $opt_s;
 my $max_input_ngrams    = $opt_t || 500;
 my $max_result_ratio    = $opt_u || 1.05;
 my $non_word_characters = $opt_w || '0-9\s()';
+my $min_input_length    = $opt_j || 0;
 
 sub help {
     print <<HELP
@@ -57,7 +58,7 @@ $0 -h
 
 * for guessing:
 
-$0 [-a Int] [-d Dir] [-f Int] [-i Int] [-l] [-t Int] [-m Int] [-u Int]
+$0 [-a Int] [-d Dir] [-f Int] [-i Int] [-j Int] [-l] [-t Int] [-m Int] [-u Int]
 
     -a    The program returns the best-scoring language together
           with all languages which are $max_result_ratio times worse (cf option -u).
@@ -76,6 +77,9 @@ $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-l] [-t Int] [-m Int] [-u Int]
           -f 0. Default: $ngram_min_freq.
 
     -i    Only read the specified number of lines of the input.
+
+    -j    Only attempt classification if the input string is at least this
+          many characters.
 
     -l    Indicates that input is given as an argument on the command line,
           e.g. text_cat -m 2000 -l "this is english text"
@@ -131,7 +135,7 @@ if ( !$create_model ) {
 	    push ( @languages,
 			# lang model must exist and be readable, be compatible with the user supplied
 			# language list, and not have been found in a previous directory; map lang code
-			# to path as a side effect o ftracking seen codes
+			# to path as a side effect of tracking seen codes
 			grep { s/\.lm// && -r "$dir/$_.lm" &&
 			       ( !$language_list || $user_langs{$_} ) &&
 			       ( !$lang_path{$_} && ($lang_path{$_} = "$dir/$_" ) ) } readdir( DIR ) );
@@ -189,6 +193,12 @@ sub classify {
     my ($input) = @_;
     my %results = ();
     my $maxp    = $model_size;
+
+	if (length($input) < $min_input_length) {
+		print
+          "I don't know. Input is too short.\n";
+        return;
+		}
 
     # create n-grams for input. Note that hash %unknown is not used;
     # it contains the actual counts which are only used under -n: creating
