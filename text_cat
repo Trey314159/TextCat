@@ -79,7 +79,7 @@ $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-j Int] [-l] [-t Int] [-m Int] [-u Int]
     -i    Only read the specified number of lines of the input.
 
     -j    Only attempt classification if the input string is at least this
-          many characters.
+          many characters. Default: 0.
 
     -l    Indicates that input is given as an argument on the command line,
           e.g. text_cat -m 2000 -l "this is english text"
