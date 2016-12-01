@@ -5,7 +5,7 @@
     =\_v_/=
            Perl
 
-This is an update to the Perl version of the TextCat language guesser utility, adding UTF-8 support, new language models for longer texts and for Wikipedia search queries, language model caching for better line-by-line processing, other performance improvements, etc.
+This is an update to the Perl version of the TextCat language guesser utility, adding UTF-8 support, new language models for longer texts and for Wikipedia search queries, language model caching for better line-by-line processing, other performance improvements, additional command line parameters, etc.
 
 See [http://odur.let.rug.nl/~vannoord/TextCat/](http://odur.let.rug.nl/~vannoord/TextCat/) for the original Perl version.
 
@@ -15,14 +15,15 @@ See [https://github.com/wikimedia/wikimedia-textcat](https://github.com/wikimedi
 
 Updates from the original version include:
 
-* updated to handle Unicode characters.
-* modified the output to include scores (in case we want to limit based on the score).
-* pre-loaded all language models so that when processing line by line it is many times faster (a known deficiency mentioned in the comments of the original).
-* put in an alphabetic sub-sort after frequency sorting of n-grams (as noted in the comments of the original, not having this is faster, but without it, results are not unique, and can vary from run to run on the same input!!), and similarly sorted outputs with the same score alphabetically.
-* removed the benchmark timers (after re-shuffling some parts of the code, they weren't in a convenient location anymore, so I just took them out.
-* updated to allow multiple language model directories; we can use query-based models but can also fall back to Wiki-text-based models without mixing them in one directory.
-* updated to allow specification of a minimum input length; shorter strings will not be identified.
-
+* Updated to handle Unicode characters.
+* Modified the output to include scores (in case we want to limit based on the score).
+* Pre-loaded all language models so that when processing line by line it is many times faster (a known deficiency mentioned in the comments of the original).
+* Put in an alphabetic sub-sort after frequency sorting of n-grams (as noted in the comments of the original, not having this is faster, but without it, results are not unique, and can vary from run to run on the same input!!), and similarly sorted outputs with the same score alphabetically.
+* Removed the benchmark timers (after re-shuffling some parts of the code, they weren't in a convenient location anymore, so I just took them out).
+* Allow specification of "non-word" characters (-w), which are discarded from the input string; the default excludes numbers and spaces.
+* Allow multiple language model directories (-d); we can use query-based models but can also fall back to Wiki-text-based models without mixing them in one directory.
+* Allow specification of a minimum input length (-j); shorter strings will not be identified. Mininimum length does not count non-word characters.
+* Allow specification of a maximum proportion of highest (i.e., worst) possible score (-p), to filter "junk" texts mostly made of unknown characters and n-grams, and to a lesser extent texts in languages that are not even similar to the models in use.
 
 ## Classification and Model Generation
 

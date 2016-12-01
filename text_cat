@@ -25,17 +25,17 @@ use open qw(:std :utf8);
 
 use strict;
 use vars
-  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_s $opt_t $opt_u $opt_w );
+  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_p $opt_s $opt_t $opt_u $opt_w );
 use Getopt::Std;
 
 # OPTIONS
-getopts('a:d:f:hi:j:lL:m:nst:u:w:');
+getopts('a:d:f:hi:j:l:L:m:np:st:u:w:');
 
 my $max_returned_langs  = $opt_a || 10;
 my $model_dir           = $opt_d || './LM';
 my $ngram_min_freq      = $opt_f || 0;
 my $max_input_lines     = $opt_i || 0;
-my $read_from_cl        = $opt_l;
+my $read_from_cl        = $opt_l || '';
 my $language_list       = $opt_L || '';
 my $model_size          = $opt_m || 500;
 my $create_model        = $opt_n;
@@ -44,6 +44,7 @@ my $max_input_ngrams    = $opt_t || 500;
 my $max_result_ratio    = $opt_u || 1.05;
 my $non_word_characters = $opt_w || '0-9\s()';
 my $min_input_length    = $opt_j || 0;
+my $max_proportion      = $opt_p || 1.00;
 
 sub help {
     print <<HELP
@@ -79,7 +80,8 @@ $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-j Int] [-l] [-t Int] [-m Int] [-u Int]
     -i    Only read the specified number of lines of the input.
 
     -j    Only attempt classification if the input string is at least this
-          many characters. Default: 0.
+          many characters (not counting non-word characters, see -w).
+          Default: 0.
 
     -l    Indicates that input is given as an argument on the command line,
           e.g. text_cat -m 2000 -l "this is english text"
@@ -87,6 +89,11 @@ $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-j Int] [-l] [-t Int] [-m Int] [-u Int]
 
     -L    Comma-separated list of languages to use; Default: all models in
           the directory specified by -d.
+
+    -p    Indicates the proportion of the maximum (worst) score possible
+          allowed for a result to be returned. 1.0 indicates that a string
+          made up entirely of n-grams not present in a model can still be
+          classified by that model. Default: 1.0
 
     -s    Determine language of each line of input.
 
@@ -176,7 +183,7 @@ if ($create_model) {
     print join( "\n", map { "$_\t $ngram{$_}"; } @result ), "\n";
 }
 elsif ($read_from_cl) {
-    classify( $ARGV[0] );
+    classify( $read_from_cl );
 }
 elsif ($line_by_line) {
     while (<>) {
@@ -194,7 +201,10 @@ sub classify {
     my %results = ();
     my $maxp    = $model_size;
 
-	if (length($input) < $min_input_length) {
+	my $input_words = $input;
+	$input_words =~ s/[$non_word_characters]+//;
+	my $input_word_len = length($input_words);
+	if ($input_word_len < $min_input_length || $input_word_len == 0) {
 		print
           "I don't know. Input is too short.\n";
         return;
@@ -220,8 +230,19 @@ sub classify {
 
         $results{$language} = $p;
     }
+
+    # max score is unknown penalty * number of n-grams * allowed proportion
+    my $max_score = $maxp * @unknown * $max_proportion;
+
     my @results =
-      sort { $results{$a} <=> $results{$b} || $a cmp $b } keys %results;
+      sort { $results{$a} <=> $results{$b} || $a cmp $b }
+      grep { $results{$_} <= $max_score }
+      keys %results;
+
+	if ( !@results ) {
+		print "I don't know. Input scores too poorly on all models.\n";
+		return;
+		}
 
     my $a = $results{ $results[0] };
 
@@ -231,7 +252,7 @@ sub classify {
     }
     if ( @answers > $max_returned_langs ) {
         print
-          "I don't know. Perhaps this is a language I haven't seen before?\n";
+          "I don't know. Input is too ambiguous.\n";
     }
     else {
         print $input, "\t",
