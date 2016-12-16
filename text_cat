@@ -25,11 +25,11 @@ use open qw(:std :utf8);
 
 use strict;
 use vars
-  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_p $opt_s $opt_t $opt_u $opt_w );
+  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_p $opt_s $opt_u $opt_w );
 use Getopt::Std;
 
 # OPTIONS
-getopts('a:d:f:hi:j:l:L:m:np:st:u:w:');
+getopts('a:d:f:hi:j:l:L:m:np:su:w:');
 
 my $max_returned_langs  = $opt_a || 10;
 my $model_dir           = $opt_d || './LM';
@@ -40,7 +40,6 @@ my $language_list       = $opt_L || '';
 my $model_size          = $opt_m || 500;
 my $create_model        = $opt_n;
 my $line_by_line        = $opt_s;
-my $max_input_ngrams    = $opt_t || 500;
 my $max_result_ratio    = $opt_u || 1.05;
 my $non_word_characters = $opt_w || '0-9\s()';
 my $min_input_length    = $opt_j || 0;
@@ -97,12 +96,6 @@ $0 [-a Int] [-d Dir] [-f Int] [-i Int] [-j Int] [-l] [-t Int] [-m Int] [-u Int]
 
     -s    Determine language of each line of input.
 
-    -t    Indicates the maximum number of n-grams that should be used from
-          the input being categorized. If used in combination with -n this
-          determines the size of the output. If used with categorization
-          this determines the number of n-grams that are compared with each
-          of the language models. Default: $max_input_ngrams.
-
     -m    Indicates the maximum number of n-grams from each language model
           that should be used. Use 0 for "all". Typical value: > 500 for
           longer texts, > 2000 for very short texts. Default: $model_size.
@@ -128,7 +121,6 @@ if ($opt_h) { help(); exit 0; }
 my @languages  = ();
 my @model_dirs = split( /[, ]+/, $model_dir );
 my %user_langs = map {$_ => 1} split( /[, ]+/, $language_list );
-my @user_langs = ();
 my %all_ngram  = ();
 
 # pre-load language models
@@ -231,18 +223,9 @@ sub classify {
         $results{$language} = $p;
     }
 
-    # max score is unknown penalty * number of n-grams * allowed proportion
-    my $max_score = $maxp * @unknown * $max_proportion;
-
     my @results =
       sort { $results{$a} <=> $results{$b} || $a cmp $b }
-      grep { $results{$_} <= $max_score }
       keys %results;
-
-	if ( !@results ) {
-		print "I don't know. Input scores too poorly on all models.\n";
-		return;
-		}
 
     my $a = $results{ $results[0] };
 
@@ -255,8 +238,17 @@ sub classify {
           "I don't know. Input is too ambiguous.\n";
     }
     else {
-        print $input, "\t",
-          join( "; ", map { $_ . "," . $results{$_} } @answers ), "\n";
+		# max score is unknown penalty * number of n-grams * allowed proportion
+		my $max_score = $maxp * @unknown * $max_proportion;
+		@answers = grep { $results{$_} <= $max_score } @answers;
+
+		if ( !@answers ) {
+			print "I don't know. Input scores too poorly on all models.\n";
+			return;
+			}
+
+		print $input, "\t",
+		  join( "; ", map { $_ . "," . $results{$_} } @answers ), "\n";
     }
 }
 
@@ -310,9 +302,9 @@ sub create_lm {
     } keys %$ngram;
     #however I have very bad results for short inputs, this way
 
-    # sort the n-grams, and spit out the $max_input_ngrams frequent ones.
+    # sort the n-grams, and spit out the $model_size frequent ones.
     my @sorted = sort { $$ngram{$b} <=> $$ngram{$a} || $a cmp $b } keys %$ngram;
-    splice( @sorted, $max_input_ngrams ) if ( @sorted > $max_input_ngrams );
+    splice( @sorted, $model_size ) if ( @sorted > $model_size );
     return @sorted;
 }
 

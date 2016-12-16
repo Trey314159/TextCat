@@ -21,9 +21,10 @@ Updates from the original version include:
 * Put in an alphabetic sub-sort after frequency sorting of n-grams (as noted in the comments of the original, not having this is faster, but without it, results are not unique, and can vary from run to run on the same input!!), and similarly sorted outputs with the same score alphabetically.
 * Removed the benchmark timers (after re-shuffling some parts of the code, they weren't in a convenient location anymore, so I just took them out).
 * Allow specification of "non-word" characters (-w), which are discarded from the input string; the default excludes numbers and spaces.
-* Allow multiple language model directories (-d); we can use query-based models but can also fall back to Wiki-text-based models without mixing them in one directory.
+* Allow multiple language model directories (-d); we can use query-based models but can also fall back to Wiki-Text-based models without mixing them in one directory.
 * Allow specification of a minimum input length (-j); shorter strings will not be identified. Mininimum length does not count non-word characters.
 * Allow specification of a maximum proportion of highest (i.e., worst) possible score (-p), to filter "junk" texts mostly made of unknown characters and n-grams, and to a lesser extent texts in languages that are not even similar to the models in use.
+* Merge n-gram count for input text and language model size to one shared value.
 
 ## Classification and Model Generation
 
