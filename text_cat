@@ -22,6 +22,7 @@
 
 use utf8;
 use open qw(:std :utf8);
+use Encode qw(decode);
 
 use strict;
 use vars
@@ -35,13 +36,13 @@ my $max_returned_langs  = $opt_a || 10;
 my $model_dir           = $opt_d || './LM';
 my $ngram_min_freq      = $opt_f || 0;
 my $max_input_lines     = $opt_i || 0;
-my $read_from_cl        = $opt_l || '';
+my $read_from_cl        = decode( "utf-8", $opt_l ) || '';
 my $language_list       = $opt_L || '';
 my $model_size          = $opt_m || 500;
 my $create_model        = $opt_n;
 my $line_by_line        = $opt_s;
 my $max_result_ratio    = $opt_u || 1.05;
-my $non_word_characters = $opt_w || '0-9\s()';
+my $non_word_characters = decode( "utf-8", $opt_w ) || '0-9\s()';
 my $min_input_length    = $opt_j || 0;
 my $max_proportion      = $opt_p || 1.00;
 
@@ -58,7 +59,8 @@ $0 -h
 
 * for guessing:
 
-$0 [-a Int] [-d Dir] [-f Int] [-i Int] [-j Int] [-l] [-t Int] [-m Int] [-u Int]
+$0 [-d Dir] [-c Lang] [-a Int] [-u Float] [-l Text]
+   [-f Int] [-j Int] [-m Int] [-p Float] [-w String]
 
     -a    The program returns the best-scoring language together
           with all languages which are $max_result_ratio times worse (cf option -u).
