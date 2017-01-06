@@ -59,5 +59,5 @@ In general, query data is much messier than Wiki-Text—including junk text and 
 
 The initial set of models provided was based in part on their performance on English Wikipedia queries (the first target for language ID using TextCat). For more details see our [initial report](https://www.mediawiki.org/wiki/User:TJones_%28WMF%29/Notes/Language_Detection_with_TextCat) on TextCat. More languages will be added in the future based on additional performance evaluations.
 
-These models have 5000 n-grams. The best number of n-grams to use for language identification is application-dependent. For larger texts (e.g., containing hundreds of words per sample), significantly smaller n-gram sets may be best. For short query seen on English, French, and Spanish Wikipedia strings, a model size of 3000 n-grams has worked well. You can set the number to be used with `-m`.
+These models have 5000 n-grams. The best number of n-grams to use for language identification is application-dependent. For larger texts (e.g., containing hundreds of words per sample), significantly smaller n-gram sets may be best. For short query strings seen on English, French, and Spanish Wikipedia, model sizes of 3000 n-grams or larger have worked well. You can set the number to be used with `-m`.
 
