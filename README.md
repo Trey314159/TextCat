@@ -25,6 +25,7 @@ Updates from the original version include:
 * Allow specification of a minimum input length (-j); shorter strings will not be identified. Mininimum length does not count non-word characters.
 * Allow specification of a maximum proportion of highest (i.e., worst) possible score (-p), to filter "junk" texts mostly made of unknown characters and n-grams, and to a lesser extent texts in languages that are not even similar to the models in use.
 * Merge n-gram count for input text and language model size to one shared value.
+* Allow boosting of particular languages in results (based, for example, on a priori knowledge of the likelihood of various languages being present).
 
 ## Classification and Model Generation
 

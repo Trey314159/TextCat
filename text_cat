@@ -26,11 +26,11 @@ use Encode qw(decode);
 
 use strict;
 use vars
-  qw( $opt_a $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_p $opt_s $opt_u $opt_w );
+  qw( $opt_a $opt_b $opt_B $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_p $opt_s $opt_u $opt_w );
 use Getopt::Std;
 
 # OPTIONS
-getopts('a:d:f:hi:j:l:L:m:np:su:w:');
+getopts('a:b:B:d:f:hi:j:l:L:m:np:su:w:');
 
 my $max_returned_langs  = $opt_a || 10;
 my $model_dir           = $opt_d || './LM';
@@ -45,6 +45,9 @@ my $max_result_ratio    = $opt_u || 1.05;
 my $non_word_characters = decode( "utf-8", $opt_w ) || '0-9\s()';
 my $min_input_length    = $opt_j || 0;
 my $max_proportion      = $opt_p || 1.00;
+my $boosted_langs		= $opt_B || '';
+my $boost_score			= $opt_b || 0;
+
 
 sub help {
     print <<HELP
@@ -59,30 +62,36 @@ $0 -h
 
 * for guessing:
 
-$0 [-d Dir] [-c Lang] [-a Int] [-u Float] [-l Text]
+$0 [-d Dir] [-L Lang] [-a Int] [-u Float] [-l Text]
    [-f Int] [-j Int] [-m Int] [-p Float] [-w String]
+   [-b Float -B Lang] [-s] [-i]
 
-    -a    The program returns the best-scoring language together
-          with all languages which are $max_result_ratio times worse (cf option -u).
-          If the number of languages to be printed is larger than the value
-          of this option (default: $max_returned_langs) then no language is returned, but
-          instead a message that the input is of an unknown language is
-          printed. Default: $max_returned_langs.
+    -a    The program returns the best-scoring language together with
+          all languages which are $max_result_ratio times worse (cf 
+          option -u). If the number of languages to be printed is larger
+          than the value of this option (default: $max_returned_langs)
+          then no language is returned, but instead a message that the
+          input is of an unknown language is printed. Default: 10
 
-    -d    Indicates in which directories the language models are
-          located (files ending in .lm). Multiple directories can be separated
-          by a comma, and will be used in order. Default: $model_dir.
+    -b    Boost to apply to languages specified by -B.  Default: 0
+
+    -B    Comma-separated list of languages to boost by amount specified
+          by -b. Default: none
+
+    -d    Indicates in which directories the language models are located
+          (files ending in .lm). Multiple directories can be separated by
+          a comma, and will be used in order. Default: ./LM
 
     -f    Before sorting is performed the n-grams which occur this number
           of times or fewer are removed. This can be used to speed up
           the program for longer inputs. For short inputs you should use
-          -f 0. Default: $ngram_min_freq.
+          -f 0. Default: 0
 
     -i    Only read the specified number of lines of the input.
 
     -j    Only attempt classification if the input string is at least this
           many characters (not counting non-word characters, see -w).
-          Default: 0.
+          Default: 0
 
     -l    Indicates that input is given as an argument on the command line,
           e.g. text_cat -m 2000 -l "this is english text"
@@ -100,13 +109,13 @@ $0 [-d Dir] [-c Lang] [-a Int] [-u Float] [-l Text]
 
     -m    Indicates the maximum number of n-grams from each language model
           that should be used. Use 0 for "all". Typical value: > 500 for
-          longer texts, > 2000 for very short texts. Default: $model_size.
+          longer texts, > 2000 for very short texts. Default: 500
 
     -u    Determines how much worse result must be in order not to be
-          mentioned as an alternative. Typical value: 1.05 or 1.1.
-          Default: $max_result_ratio.
+          mentioned as an alternative. Typical value: 1.05 or 1.10.
+          Default: 1.05
 
-    -w    Regex for non-word characters. Default: '$non_word_characters'.
+    -w    Regex for non-word characters. Default: '0-9\\s()'
 
 
 * for creating new language model, based on text read from standard input:
@@ -123,6 +132,7 @@ if ($opt_h) { help(); exit 0; }
 my @languages  = ();
 my @model_dirs = split( /[, ]+/, $model_dir );
 my %user_langs = map {$_ => 1} split( /[, ]+/, $language_list );
+my %boost = map {$_ => $boost_score} split( /[, ]+/, $boosted_langs );
 my %all_ngram  = ();
 
 # pre-load language models
@@ -174,7 +184,7 @@ if ( !$create_model ) {
 if ($create_model) {
     my %ngram = ();
     my @result = create_lm( input(), \%ngram );
-    print join( "\n", map { "$_\t $ngram{$_}"; } @result ), "\n";
+    print join( "\n", map { "$_\t$ngram{$_}"; } @result ), "\n";
 }
 elsif ($read_from_cl) {
     classify( $read_from_cl );
@@ -223,6 +233,10 @@ sub classify {
         }
 
         $results{$language} = $p;
+
+        if ( $boost{$language} ) {
+        	$results{$language} = int( $results{$language} * ( 1 - $boost{$language} ) + 0.5 );
+        	}
     }
 
     my @results =
