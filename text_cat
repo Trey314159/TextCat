@@ -25,8 +25,8 @@ use open qw(:std :utf8);
 use Encode qw(decode);
 
 use strict;
-use vars
-  qw( $opt_a $opt_b $opt_B $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m $opt_n $opt_p $opt_s $opt_u $opt_w );
+use vars qw( $opt_a $opt_b $opt_B $opt_d $opt_f $opt_h $opt_i $opt_j $opt_l $opt_L $opt_m
+			 $opt_n $opt_p $opt_s $opt_u $opt_w );
 use Getopt::Std;
 
 # OPTIONS
@@ -50,8 +50,7 @@ my $boost_score			= $opt_b || 0;
 
 
 sub help {
-    print <<HELP
-Text Categorization. Typically used to determine the language of a given document.
+  print <<HELP
 
 Usage
 -----
@@ -67,13 +66,14 @@ $0 [-d Dir] [-L Lang] [-a Int] [-u Float] [-l Text]
    [-b Float -B Lang] [-s] [-i]
 
     -a    The program returns the best-scoring language together with
-          all languages which are $max_result_ratio times worse (cf 
+          all languages which are $max_result_ratio times worse (cf
           option -u). If the number of languages to be printed is larger
           than the value of this option (default: $max_returned_langs)
           then no language is returned, but instead a message that the
           input is of an unknown language is printed. Default: 10
 
-    -b    Boost to apply to languages specified by -B.  Default: 0
+    -b    Boost to apply to languages specified by -B. Typical value:
+          0.05 to 0.10. Default: 0
 
     -B    Comma-separated list of languages to boost by amount specified
           by -b. Default: none
@@ -141,119 +141,117 @@ if ( !$create_model ) {
 	my %lang_path = ();
 
 	foreach my $dir ( @model_dirs ) {
-	    # open directory to find which languages are supported
-	    opendir DIR, "$dir" or die "directory $dir: $!\n";
-	    push ( @languages,
+		# open directory to find which languages are supported
+		opendir DIR, "$dir" or die "directory $dir: $!\n";
+		push ( @languages,
 			# lang model must exist and be readable, be compatible with the user supplied
 			# language list, and not have been found in a previous directory; map lang code
 			# to path as a side effect of tracking seen codes
 			grep { s/\.lm// && -r "$dir/$_.lm" &&
-			       ( !$language_list || $user_langs{$_} ) &&
-			       ( !$lang_path{$_} && ($lang_path{$_} = "$dir/$_" ) ) } readdir( DIR ) );
-	    closedir DIR;
+					( !$language_list || $user_langs{$_} ) &&
+					( !$lang_path{$_} && ($lang_path{$_} = "$dir/$_" ) ) } readdir( DIR ) );
+		closedir DIR;
 	}
 
-    @languages
-      or die "sorry, can't read any language models from $model_dir\n"
-      . "language models must reside in files with .lm ending\n";
+	@languages
+		or die "sorry, can't read any language models from $model_dir\n"
+		. "language models must reside in files with .lm ending\n";
 
-    # load model and count for each language.
-    my $language;
-    foreach $language ( @languages ) {
+	# load model and count for each language.
+	my $language;
+	foreach $language ( @languages ) {
 
-        # loads the language model into hash %$language.
-        my $rang = 1;
+		# loads the language model into hash %$language.
+		my $rang = 1;
 
-        open( LM, $lang_path{$language}.".lm" )
-          || die "cannot open $language.lm: $!\n";
-        while (<LM>) {
-            chomp;
+		open( LM, $lang_path{$language}.".lm" )
+			|| die "cannot open $language.lm: $!\n";
+		while (<LM>) {
+			chomp;
 
-            # only use lines starting with appropriate character. Others are ignored.
-            if (/^([^$non_word_characters]+)/) {
-                $all_ngram{$language}{$1} = $rang++;
-            }
-            if ( $model_size && $rang > $model_size ) {
-                last;
-            }
-        }
-        close(LM);
-    }
+			# only use lines starting with appropriate character. Others are ignored.
+			if (/^([^$non_word_characters]+)/) {
+				$all_ngram{$language}{$1} = $rang++;
+			}
+			if ( $model_size && $rang > $model_size ) {
+				last;
+			}
+		}
+		close(LM);
+	}
 }
 
 if ($create_model) {
-    my %ngram = ();
-    my @result = create_lm( input(), \%ngram );
-    print join( "\n", map { "$_\t$ngram{$_}"; } @result ), "\n";
+	my %ngram = ();
+	my @result = create_lm( input(), \%ngram );
+	print join( "\n", map { "$_\t$ngram{$_}"; } @result ), "\n";
 }
 elsif ($read_from_cl) {
-    classify( $read_from_cl );
+	classify( $read_from_cl );
 }
 elsif ($line_by_line) {
-    while (<>) {
-        chomp;
-        classify($_);
-    }
+	while (<>) {
+		chomp;
+		classify($_);
+	}
 }
 else {
-    classify( input() );
+	classify( input() );
 }
 
 # CLASSIFICATION
 sub classify {
-    my ($input) = @_;
-    my %results = ();
-    my $maxp    = $model_size;
+	my ($input) = @_;
+	my %results = ();
+	my $maxp    = $model_size;
 
 	my $input_words = $input;
 	$input_words =~ s/[$non_word_characters]+//;
 	my $input_word_len = length($input_words);
 	if ($input_word_len < $min_input_length || $input_word_len == 0) {
-		print
-          "I don't know. Input is too short.\n";
-        return;
+		print "I don't know. Input is too short.\n";
+		return;
 		}
 
-    # create n-grams for input. Note that hash %unknown is not used;
-    # it contains the actual counts which are only used under -n: creating
-    # new language model (and even then they are not really required).
-    my @unknown = create_lm($input);
-    foreach my $language (@languages) {
+	# create n-grams for input. Note that hash %unknown is not used;
+	# it contains the actual counts which are only used under -n: creating
+	# new language model (and even then they are not really required).
+	my @unknown = create_lm($input);
+	foreach my $language (@languages) {
 
-        # compares the language model with input n-grams list
-        my ( $i, $p ) = ( 0, 0 );
-        while ( $i < @unknown ) {
-            if ( $all_ngram{$language}{ $unknown[$i] } ) {
-                $p = $p + abs( $all_ngram{$language}{ $unknown[$i] } - $i );
-            }
-            else {
-                $p = $p + $maxp;
-            }
-            ++$i;
-        }
+		# compares the language model with input n-grams list
+		my ( $i, $p ) = ( 0, 0 );
+		while ( $i < @unknown ) {
+			if ( $all_ngram{$language}{ $unknown[$i] } ) {
+				$p = $p + abs( $all_ngram{$language}{ $unknown[$i] } - $i );
+			}
+			else {
+				$p = $p + $maxp;
+			}
+			++$i;
+		}
 
-        $results{$language} = $p;
+		$results{$language} = $p;
 
-        if ( $boost{$language} ) {
-        	$results{$language} = int( $results{$language} * ( 1 - $boost{$language} ) + 0.5 );
-        	}
-    }
+		if ( $boost{$language} ) {
+			$results{$language} = int( $results{$language} * ( 1 - $boost{$language} ) + 0.5 );
+		}
+	}
 
-    my @results =
-      sort { $results{$a} <=> $results{$b} || $a cmp $b }
-      keys %results;
+	my @results =
+		sort { $results{$a} <=> $results{$b} || $a cmp $b }
+		keys %results;
 
-    my $a = $results{ $results[0] };
+	my $a = $results{ $results[0] };
 
-    my @answers = ( shift(@results) );
-    while ( @results && $results{ $results[0] } < ( $max_result_ratio * $a ) ) {
-        @answers = ( @answers, shift(@results) );
-    }
-    if ( @answers > $max_returned_langs ) {
-        print
-          "I don't know. Input is too ambiguous.\n";
-    }
-    else {
+	my @answers = ( shift(@results) );
+	while ( @results && $results{ $results[0] } < ( $max_result_ratio * $a ) ) {
+		@answers = ( @answers, shift(@results) );
+	}
+	if ( @answers > $max_returned_langs ) {
+		print "I don't know. Input is too ambiguous.\n";
+	}
+	else {
 		# max score is unknown penalty * number of n-grams * allowed proportion
 		my $max_score = $maxp * @unknown * $max_proportion;
 		@answers = grep { $results{$_} <= $max_score } @answers;
@@ -264,63 +262,63 @@ sub classify {
 			}
 
 		print $input, "\t",
-		  join( "; ", map { $_ . "," . $results{$_} } @answers ), "\n";
-    }
+			join( "; ", map { $_ . "," . $results{$_} } @answers ), "\n";
+	}
 }
 
 # first and only argument is reference to hash.
 # this hash is filled, and a sorted list is returned.
 sub input {
-    my $read = "";
-    if ($max_input_lines) {
-        while (<>) {
-            if ( $. == $max_input_lines ) {
-                return $read . $_;
-            }
-            $read = $read . $_;
-        }
-        return $read;
-    }
-    else {
-        local $/;    # so it doesn't affect $/ elsewhere
-        undef $/;
-        $read = <>;    # swallow input.
-        $read || die "determining the language of an empty file is hard...\n";
-        return $read;
-    }
+	my $read = "";
+	if ($max_input_lines) {
+		while (<>) {
+			if ( $. == $max_input_lines ) {
+				return $read . $_;
+			}
+			$read = $read . $_;
+		}
+		return $read;
+	}
+	else {
+		local $/;    # so it doesn't affect $/ elsewhere
+		undef $/;
+		$read = <>;    # swallow input.
+		$read || die "determining the language of an empty file is hard...\n";
+		return $read;
+	}
 }
 
 sub create_lm {
-    my $ngram;
-    ( $_, $ngram ) = @_;	# $ngram contains reference to the hash we build
+	my $ngram;
+	( $_, $ngram ) = @_;	# $ngram contains reference to the hash we build
 							# then add the n-grams found in each word in the hash
-    my $word;
-    foreach $word ( split("[$non_word_characters]+") ) {
-        $word = "_" . $word . "_";
-        my $len  = length($word);
-        my $flen = $len;
-        my $i;
-        for ( $i = 0 ; $i < $flen ; $i++ ) {
-            $$ngram{ substr( $word, $i, 5 ) }++ if $len > 4;
-            $$ngram{ substr( $word, $i, 4 ) }++ if $len > 3;
-            $$ngram{ substr( $word, $i, 3 ) }++ if $len > 2;
-            $$ngram{ substr( $word, $i, 2 ) }++ if $len > 1;
-            $$ngram{ substr( $word, $i, 1 ) }++;
-            $len--;
-        }
-    }
+	my $word;
+	foreach $word ( split("[$non_word_characters]+") ) {
+		$word = "_" . $word . "_";
+		my $len  = length($word);
+		my $flen = $len;
+		my $i;
+		for ( $i = 0 ; $i < $flen ; $i++ ) {
+			$$ngram{ substr( $word, $i, 5 ) }++ if $len > 4;
+			$$ngram{ substr( $word, $i, 4 ) }++ if $len > 3;
+			$$ngram{ substr( $word, $i, 3 ) }++ if $len > 2;
+			$$ngram{ substr( $word, $i, 2 ) }++ if $len > 1;
+			$$ngram{ substr( $word, $i, 1 ) }++;
+			$len--;
+		}
+	}
 
-    # as suggested by Karel P. de Vos, k.vos@elsevier.nl, we speed up
-    # sorting by removing singletons
-    map {
-        my $key = $_;
-        if ( $$ngram{$key} <= $ngram_min_freq ) { delete $$ngram{$key}; }
-    } keys %$ngram;
-    #however I have very bad results for short inputs, this way
+	# as suggested by Karel P. de Vos, k.vos@elsevier.nl, we speed up
+	# sorting by removing singletons
+	map {
+		my $key = $_;
+		if ( $$ngram{$key} <= $ngram_min_freq ) { delete $$ngram{$key}; }
+	} keys %$ngram;
+	#however I have very bad results for short inputs, this way
 
-    # sort the n-grams, and spit out the $model_size frequent ones.
-    my @sorted = sort { $$ngram{$b} <=> $$ngram{$a} || $a cmp $b } keys %$ngram;
-    splice( @sorted, $model_size ) if ( @sorted > $model_size );
-    return @sorted;
+	# sort the n-grams, and spit out the $model_size frequent ones.
+	my @sorted = sort { $$ngram{$b} <=> $$ngram{$a} || $a cmp $b } keys %$ngram;
+	splice( @sorted, $model_size ) if ( @sorted > $model_size );
+	return @sorted;
 }
 
