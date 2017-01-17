@@ -73,7 +73,7 @@ $0 [-d Dir] [-L Lang] [-a Int] [-u Float] [-l Text]
           input is of an unknown language is printed. Default: 10
 
     -b    Boost to apply to languages specified by -B. Typical value:
-          0.05 to 0.10. Default: 0
+          0.05 to 0.15. Default: 0
 
     -B    Comma-separated list of languages to boost by amount specified
           by -b. Default: none
