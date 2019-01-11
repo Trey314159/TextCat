@@ -59,7 +59,7 @@ Usage
 
 $0 -h
 
-* for guessing:
+* for identifying languages:
 
 $0 [-d Dir] [-L Lang] [-a Int] [-u Float] [-l Text]
    [-f Int] [-j Int] [-m Int] [-p Float] [-w String]
@@ -118,11 +118,13 @@ $0 [-d Dir] [-L Lang] [-a Int] [-u Float] [-l Text]
     -w    Regex for non-word characters. Default: '0-9\\s()'
 
 
-* for creating new language model, based on text read from standard input:
+* for creating a new language model, based on text read from standard input:
 
-$0 -n [-t Int]
+$0 -n [-f Int] [-m Int] < input_text
 
-    -t    See above.
+    -n    Indicates that the input text should be used to make a new model.
+
+    (For -f and -m options, see above.)
 
 HELP
 }
