@@ -208,10 +208,10 @@ sub classify {
 	my $maxp    = $model_size;
 
 	my $input_words = $input;
-	$input_words =~ s/[$non_word_characters]+//;
+	$input_words =~ s/[$non_word_characters]+//g;
 	my $input_word_len = length($input_words);
 	if ($input_word_len < $min_input_length || $input_word_len == 0) {
-		print "I don't know. Input is too short.\n";
+		print $input, "\tI don't know. Input is too short.\n";
 		return;
 		}
 
@@ -251,7 +251,7 @@ sub classify {
 		@answers = ( @answers, shift(@results) );
 	}
 	if ( @answers > $max_returned_langs ) {
-		print "I don't know. Input is too ambiguous.\n";
+		print $input, "\tI don't know. Input is too ambiguous.\n";
 	}
 	else {
 		# max score is unknown penalty * number of n-grams * allowed proportion
@@ -259,7 +259,7 @@ sub classify {
 		@answers = grep { $results{$_} <= $max_score } @answers;
 
 		if ( !@answers ) {
-			print "I don't know. Input scores too poorly on all models.\n";
+			print $input, "\tI don't know. Input scores too poorly on all models.\n";
 			return;
 			}
 
